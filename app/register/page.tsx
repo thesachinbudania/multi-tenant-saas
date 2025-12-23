@@ -1,8 +1,81 @@
+"use client";
+
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { useGoogleLogin } from "@react-oauth/google";
 import Button from "../src/components/ui/Button";
 import Input from "../src/components/ui/Input";
+import { useAuthStore } from "../src/store/useAuthStore";
+import { authApi } from "../src/lib/api";
+
+type UserType = "company" | "employee";
 
 export default function RegisterPage() {
+    const [userType, setUserType] = useState<UserType>("company");
+    const [formData, setFormData] = useState({
+        full_name: "",
+        email: "",
+        password: "",
+        companyCode: ""
+    });
+    const [error, setError] = useState("");
+    const { setAuth, setLoading, isLoading } = useAuthStore();
+    const router = useRouter();
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setFormData({ ...formData, [e.target.id]: e.target.value });
+        setError("");
+    };
+
+    const handleRegister = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setError("");
+        setLoading(true);
+
+        try {
+            // NOTE: Employee signup often requires a different flow or role
+            // Mapping UI "company" -> role "COMPANY" (example) if backend needs it.
+            // OpenAPI schema expects: full_name, email, password, role.
+
+            await authApi.signUp({
+                full_name: formData.full_name,
+                email: formData.email,
+                password: formData.password,
+                role: userType === 'company' ? 'company' : 'employee'
+            });
+
+            // Standard signup expects OTP verification next
+            router.push(`/otp/verify?email=${encodeURIComponent(formData.email)}`);
+        } catch (err: any) {
+            console.error("Signup Error:", err);
+            setError(err.response?.data?.message || err.response?.data?.description || "Signup failed. Please try again.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Google Signup acts like Login (returns tokens directly if successful)
+    const googleSignup = useGoogleLogin({
+        onSuccess: async (tokenResponse) => {
+            setLoading(true);
+            try {
+                const response = await authApi.googleSignUp(tokenResponse.access_token);
+                const { access_token, refresh_token, first_name, last_name, email } = response.data;
+                setAuth(access_token, refresh_token, { first_name, last_name, email });
+                router.push("/dashboard");
+            } catch (err: any) {
+                console.error("Google Signup Error:", err);
+                setError(err.response?.data?.message || "Google signup failed.");
+            } finally {
+                setLoading(false);
+            }
+        },
+        onError: () => {
+            setError("Google signup failed.");
+        }
+    });
+
     return (
         <main className="min-h-screen grid grid-cols-1 lg:grid-cols-2">
 
@@ -16,10 +89,12 @@ export default function RegisterPage() {
 
                 <div className="flex flex-col gap-6 max-w-lg z-10">
                     <h1 className="text-7xl font-bold tracking-tight leading-[0.9]">
-                        Join the revolution.
+                        {userType === 'company' ? 'Join the revolution.' : 'Join your team.'}
                     </h1>
                     <p className="text-2xl text-gray-400">
-                        Start managing your organization with zero friction today.
+                        {userType === 'company'
+                            ? 'Start managing your organization with zero friction today.'
+                            : 'Collaborate with your team in a unified workspace.'}
                     </p>
                 </div>
 
@@ -36,8 +111,37 @@ export default function RegisterPage() {
                         <p className="text-text-secondary text-lg">Enter your details to get started.</p>
                     </div>
 
+                    {/* User Type Toggle */}
+                    <div className="flex p-1 bg-gray-100 rounded-lg w-full">
+                        <button
+                            type="button"
+                            onClick={() => setUserType("company")}
+                            className={`flex-1 py-2 text-sm font-bold rounded-md transition-all ${userType === "company"
+                                ? "bg-white text-black shadow-sm"
+                                : "text-gray-500 hover:text-black"
+                                }`}
+                        >
+                            Company Signup
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setUserType("employee")}
+                            className={`flex-1 py-2 text-sm font-bold rounded-md transition-all ${userType === "employee"
+                                ? "bg-white text-black shadow-sm"
+                                : "text-gray-500 hover:text-black"
+                                }`}
+                        >
+                            Employee Signup
+                        </button>
+                    </div>
+
                     {/* Google Sign Up */}
-                    <button className="flex items-center justify-center gap-3 w-full px-6 py-4 border border-black text-black text-lg font-bold hover:bg-gray-50 transition-colors">
+                    <button
+                        onClick={() => googleSignup()}
+                        type="button"
+                        className="flex items-center justify-center gap-3 w-full px-6 py-4 border border-black text-black text-lg font-bold hover:bg-gray-50 transition-colors disabled:opacity-50"
+                        disabled={isLoading}
+                    >
                         {/* Google Icon SVG */}
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
@@ -53,30 +157,66 @@ export default function RegisterPage() {
                         <span className="relative bg-white px-4 text-gray-500 text-sm font-medium">OR CONTINUE WITH</span>
                     </div>
 
+                    {error && (
+                        <div className="bg-red-50 text-red-600 p-3 rounded-md text-sm text-center">
+                            {error}
+                        </div>
+                    )}
+
                     {/* Email Form */}
-                    <form className="flex flex-col gap-6">
+                    <form className="flex flex-col gap-6" onSubmit={handleRegister}>
+
+                        {userType === "employee" && (
+                            <Input
+                                id="companyCode"
+                                type="text"
+                                label="Company Invitation Code"
+                                placeholder="e.g. C-12345"
+                                value={formData.companyCode}
+                                onChange={handleChange}
+                            />
+                        )}
+
                         <Input
+                            id="full_name"
                             type="text"
                             label="Full Name"
                             placeholder="John Doe"
+                            value={formData.full_name}
+                            onChange={handleChange}
+                            required
                         />
 
                         <Input
+                            id="email"
                             type="email"
                             label="Email address"
                             placeholder="name@company.com"
+                            value={formData.email}
+                            onChange={handleChange}
+                            required
                         />
 
                         <div className="flex flex-col gap-2">
                             <Input
+                                id="password"
                                 type="password"
                                 label="Password"
                                 placeholder="••••••••"
+                                value={formData.password}
+                                onChange={handleChange}
+                                required
                             />
                         </div>
 
-                        <Button variant="primary" size="lg" className="w-full mt-2">
-                            Create Account
+                        <Button
+                            variant="primary"
+                            size="lg"
+                            className="w-full mt-2"
+                            isLoading={isLoading}
+                            type="submit"
+                        >
+                            {userType === 'company' ? 'Start Company Profile' : 'Join Workspace'}
                         </Button>
                     </form>
 

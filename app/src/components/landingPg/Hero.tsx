@@ -1,4 +1,5 @@
 import Image from 'next/image';
+import Link from 'next/link';
 import Button from '../ui/Button';
 
 export default function Hero() {
@@ -14,9 +15,11 @@ export default function Hero() {
             The isolated workspace for your organization. Assign tasks, track progress, and collaborate in a dedicated, fully branded environment.
           </p>
         </div>
-        <Button variant="primary" size="hero">
-          Register Organization
-        </Button>
+        <Link href="/register">
+          <Button variant="primary" size="hero">
+            Register Organization
+          </Button>
+        </Link>
         {/* Small Text */}
         <p className="text-sm text-text-secondary">
           Get your dedicated workspace URL instantly.

@@ -1,4 +1,5 @@
 import Image from 'next/image';
+import Link from 'next/link';
 import Button from '../ui/Button';
 
 export default function Header() {
@@ -32,12 +33,16 @@ export default function Header() {
 
       {/* Auth Buttons */}
       <div className="flex gap-3 items-center shrink-0">
-        <Button variant="ghost" size="lg">
-          Log in
-        </Button>
-        <Button variant="outline" size="md">
-          Sign up
-        </Button>
+        <Link href="/login">
+          <Button variant="ghost" size="lg">
+            Log in
+          </Button>
+        </Link>
+        <Link href="/register">
+          <Button variant="outline" size="md">
+            Sign up
+          </Button>
+        </Link>
       </div>
     </header>
   );

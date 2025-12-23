@@ -1,5 +1,6 @@
 import { ButtonHTMLAttributes, forwardRef } from 'react';
 import { twMerge } from 'tailwind-merge';
+import { Loader2 } from 'lucide-react';
 
 // Using a simple conditional approach since we don't have class-variance-authority installed, 
 // but keeping it clean.
@@ -7,12 +8,14 @@ import { twMerge } from 'tailwind-merge';
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
     variant?: 'primary' | 'outline' | 'ghost' | 'inverse' | 'inverse-outline';
     size?: 'sm' | 'md' | 'lg' | 'hero';
+    isLoading?: boolean;
 }
 
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(({
     className,
     variant = 'primary',
     size = 'md',
+    isLoading = false,
     ...props
 }, ref) => {
 
@@ -37,8 +40,12 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(({
         <button
             ref={ref}
             className={twMerge(baseStyles, variants[variant], sizes[size], className)}
+            disabled={props.disabled || isLoading}
             {...props}
-        />
+        >
+            {isLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+            {props.children}
+        </button>
     );
 });
 
